@@ -31,30 +31,29 @@ void uart_event_task(void* pvParameters){
                             uart_read_bytes(UART_NUM, rx_data, pos, 100 / portTICK_PERIOD_MS);
                             //Read the linebreak to flush next pattern
                             uart_read_bytes(UART_NUM, pattern, buffered_size-pos, 100 / portTICK_PERIOD_MS);
-                            ESP_LOGD(UART_TAG, "Read data: %s", rx_data);
+                            //Get the 2 character command and the string parameters
+                            char* command = get_command_from_data(rx_data);
+                            char* parameters = get_string_parameter_from_command(rx_data);
                             //Perform the command based on the state machine
                             switch (fsm_state) {
                                 case IDLE:
                                     {
-                                        //Get the 2 character command
-                                        char* command = get_command_from_data(rx_data);
                                         //Check whether the command is OP or AD
                                         if (strcmp(command, "OP") == 0) {
                                             //If command is OP, get the next buffered characters as the address and convert it to an integer
-                                            int32_t address_numeric = get_int32_parameter_from_command(rx_data);
+                                            int32_t address_numeric = get_next_number_from_string(parameters);
                                             //Check whether the address is the same as the current device address, send response and get the next state
                                             send_response_and_get_next_state(address_numeric == uart_task_data.device_data.address,
                                                                             MOVE_ON_SUCCESS, 
                                                                             WAITING_FOR_COMMAND,
                                                                             fsm_state);
+                                        } else {
+                                            printf("ERR\n");
                                         }
-                                        free(command);
                                         break;
                                     }
                                 case PENDING_CONFIGURATION:
                                     {
-                                        //Get the 2 character command
-                                        char* command = get_command_from_data(rx_data);
                                         if (strcmp(command, "WP") == 0) {
                                             //Update the address in the NVS
                                             esp_err_t err = ESP_OK;
@@ -66,47 +65,30 @@ void uart_event_task(void* pvParameters){
                                                                             MOVE_ALWAYS, 
                                                                             WAITING_FOR_COMMAND,
                                                                             fsm_state);
+                                        } else {
+                                            printf("ERR\n");
                                         }
-                                        free(command);
                                         break;  
                                     }
                                 case WAITING_FOR_COMMAND:
                                     {
-                                        //Get the 2 character command
-                                        char* command = get_command_from_data(rx_data);
                                         if (strcmp(command, "CL") == 0) {
                                             printf("OK\n");
                                             fsm_state = IDLE;
                                         } else if (strcmp(command, "CV") == 0) {
                                             if (strlen((char*)rx_data) > 2) {
-                                                char* parametes_string = get_string_parameter_from_command(rx_data);
-                                                char* valve_id = (char*)malloc(2);
-                                                char* weight = (char*)malloc(5);
-                                                *valve_id = '\0';
-                                                *weight = '\0';
-                                                bool start_flag = false;
-                                                for (int i = 0; i < strlen(parametes_string); i++) {
-                                                    if (parametes_string[i] != ' ') {
-                                                        start_flag = true;
-                                                    }
-                                                    if (parametes_string[i] == ' ' && start_flag) {
-                                                        parametes_string[i] = '\0';
-                                                        sprintf(valve_id, "%s", parametes_string);
-                                                        sprintf(weight, "%s", parametes_string+i+1);
-                                                        break;
-                                                    }
-                                                }
-                                                if (strlen(valve_id) > 0 && strlen(weight) > 0 && are_all_digits(valve_id) && are_all_digits(weight)) {
-                                                    uint8_t valve_id_numeric = atoi(valve_id);
-                                                    uint16_t weight_numeric = atoi(weight);
-                                                    printf("Valve ID: %d\n", valve_id_numeric);
-                                                    printf("Weight: %d\n", weight_numeric);
+                                                int32_t valve_id = get_next_number_from_string(parameters);
+                                                int32_t weight = get_next_number_from_string(parameters);
+                                                int32_t weight_setpoint = get_next_number_from_string(parameters);
+
+                                                if (valve_id >= 0 && valve_id <= 7 && weight >= 0 && weight <= 65535 &&
+                                                    weight_setpoint >= 0 && weight_setpoint <= 65535) {
+                                                    printf("OK\n");
+                                                    uint32_t value_to_send = ((uint16_t)weight << 16) | (uint16_t)weight_setpoint;
+                                                    xTaskNotify(uart_task_data.pid_tasks[valve_id], value_to_send, eSetValueWithOverwrite);
                                                 } else {
                                                     printf("ERR\n");
                                                 }
-                                                free(parametes_string);
-                                                free(valve_id);
-                                                free(weight);
                                             } else {
                                                 printf("ERR\n");
                                             }
@@ -117,21 +99,24 @@ void uart_event_task(void* pvParameters){
                                                 printf("A:%03ld\n", uart_task_data.device_data.address);
                                             } else {
                                                 //If the address is not empty, get the next buffered characters as the address and convert it to an integer
-                                                uart_task_data.device_data.new_address = get_int32_parameter_from_command(rx_data);
+                                                uart_task_data.device_data.new_address = get_next_number_from_string(parameters);
+                                                ESP_LOGI(UART_TAG, "New Address: %ld", uart_task_data.device_data.new_address);
                                                 send_response_and_get_next_state(uart_task_data.device_data.new_address >= 0 && 
-                                                                                uart_task_data.device_data.new_address <= 255 &&
-                                                                                are_all_digits(get_string_parameter_from_command(rx_data)),
+                                                                                uart_task_data.device_data.new_address <= 255,
                                                                                 MOVE_ON_SUCCESS, 
                                                                                 PENDING_CONFIGURATION,
                                                                                 fsm_state);
                                             }
+                                        } else {
+                                            printf("ERR\n");
                                         }
-                                        free(command);
                                         break;
                                     }
                                 default:
                                     break;
                             }
+                            //Free the memory
+                            free(command);
                         } else {
                             //If no pattern is found, flush the input buffer
                             uart_flush_input(UART_NUM);
@@ -155,18 +140,29 @@ void uart_event_task(void* pvParameters){
 /// @param rx_data RX buffered data from uart pattern detection
 /// @return Pointer to the string parameter
 char* get_string_parameter_from_command(uint8_t* rx_data) {
-    char* parameter = (char*)malloc(12);
+    char* parameter = (char*)malloc(20);
     sprintf(parameter, "%s", (char*)rx_data+2);
     return parameter;
 }
 
-/// @brief Gets the parameters after a two character command
-/// @param rx_data RX buffered data from uart pattern detection
-/// @return 32-bit integer of the address
-int32_t get_int32_parameter_from_command(uint8_t* rx_data) {
-    char* parameter = get_string_parameter_from_command(rx_data);
-    int32_t parameter_numeric = atoi(parameter);
-    free(parameter);
+/// @brief Extracts the next number from a string and updates the string pointer
+/// @param string Pointer to the string to extract the number from
+/// @return First number in the string
+int32_t get_next_number_from_string(char* &string) {
+    int32_t parameter_numeric;
+    uint16_t i;
+    bool start_search = false;
+    for (i = 0; i < strlen(string); i++) {
+        if (string[i] != ' ') {
+            start_search = true;
+        }
+        if (string[i] == ' ' && start_search) {
+            string[i] = '\0';
+            break;
+        }
+    }
+    are_all_digits(string) ? parameter_numeric = atoi(string) : parameter_numeric = -1;
+    string+=i+1;
     return parameter_numeric;
 }
 
@@ -205,10 +201,17 @@ void send_response_and_get_next_state(bool success, move_on_t move_on, fsm_state
 /// @param string String to check
 /// @return True if all characters are digits or spaces
 bool are_all_digits(char* string) {
+    uint8_t digits_count = 0;
+    uint8_t spaces_count = 0;
     for (int i = 0; i < strlen(string); i++) {
-        if (!(isdigit(string[i]) || string[i] == ' ')) {
+        if (isdigit(string[i])) {
+            digits_count++;
+        } else if (string[i] == ' ') {
+            spaces_count++;
+        } else {
             return false;
         }
     }
-    return true;
+
+    return (digits_count != 0);
 }

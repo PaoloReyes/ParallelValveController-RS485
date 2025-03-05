@@ -8,6 +8,7 @@
     #include "../constants.h"
 
 
+    void PID_task_0(void *pvParameters);
     void PID_task_1(void *pvParameters);
     void PID_task_2(void *pvParameters);
     void PID_task_3(void *pvParameters);
@@ -15,5 +16,4 @@
     void PID_task_5(void *pvParameters);
     void PID_task_6(void *pvParameters);
     void PID_task_7(void *pvParameters);
-    void PID_task_8(void *pvParameters);
 #endif

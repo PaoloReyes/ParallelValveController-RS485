@@ -47,26 +47,29 @@ extern "C" void app_main(void) {
     //Open NVS
     ESP_ERROR_CHECK(nvs_open(DEVICE_DATA_NAMESPACE, NVS_READWRITE, &device_data.nvs_handle));
     //Read Address
-    nvs_get_i32(device_data.nvs_handle, DEVICE_ADDRESS, &device_data.address);
+    ESP_ERROR_CHECK(nvs_get_i32(device_data.nvs_handle, DEVICE_ADDRESS, &device_data.address));
     //Close
     nvs_close(device_data.nvs_handle);
 
-    //Create a uart task data structure
+    //Create a task handle array for PID tasks
+    TaskHandle_t* pid_tasks = (TaskHandle_t*)malloc(sizeof(TaskHandle_t)*8); 
+    //Create individual tasks for PID control for multicore processing
+    xTaskCreatePinnedToCore(PID_task_0, "PID_task_0", 4096, NULL, 1, &pid_tasks[0], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_1, "PID_task_1", 4096, NULL, 1, &pid_tasks[1], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_2, "PID_task_2", 4096, NULL, 1, &pid_tasks[2], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_3, "PID_task_3", 4096, NULL, 1, &pid_tasks[3], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_4, "PID_task_4", 4096, NULL, 1, &pid_tasks[4], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_5, "PID_task_5", 4096, NULL, 1, &pid_tasks[5], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_6, "PID_task_6", 4096, NULL, 1, &pid_tasks[6], tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(PID_task_7, "PID_task_7", 4096, NULL, 1, &pid_tasks[7], tskNO_AFFINITY);
+
+    //Create an uart task data structure
     uart_task_data_t uart_task_data = {
         .device_data = device_data,
         .uart_queue = uart_queue,
+        .pid_tasks = pid_tasks,
     };
 
     //Create a task to handle UART event from ISR
-    xTaskCreatePinnedToCore(uart_event_task, "uart_event_task", 4096, (void*)&uart_task_data, 2, NULL, tskNO_AFFINITY);
-
-    //Create individual tasks for PID control for multicore processing
-    xTaskCreatePinnedToCore(PID_task_1, "PID_task_1", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_2, "PID_task_2", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_3, "PID_task_3", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_4, "PID_task_4", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_5, "PID_task_5", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_6, "PID_task_6", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_7, "PID_task_7", 4096, NULL, 1, NULL, tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_8, "PID_task_8", 4096, NULL, 1, NULL, tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(uart_event_task, "uart_event_task", 8192, (void*)&uart_task_data, 2, NULL, tskNO_AFFINITY);
 }

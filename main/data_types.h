@@ -14,5 +14,6 @@
     typedef struct {
         device_data_t device_data;
         QueueHandle_t uart_queue;
+        TaskHandle_t* pid_tasks;
     } uart_task_data_t;
 #endif
