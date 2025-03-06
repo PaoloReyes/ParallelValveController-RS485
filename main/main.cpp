@@ -6,6 +6,7 @@
 #include <nvs_flash.h>
 #include <nvs.h>
 #include <driver/ledc.h>
+#include <driver/mcpwm.h>
 #include "tasks/uart.h"
 #include "tasks/pid.h"
 #include "constants.h"
@@ -69,19 +70,42 @@ extern "C" void app_main(void) {
         .sleep_mode = LEDC_SLEEP_MODE_NO_ALIVE_NO_PD,
     };
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel_0));
-    write_angle(ledc_channel_0.channel, 0);
+    write_ledc_angle(ledc_channel_0.channel, 0);
 
     //Create an array for pins and channels
-    gpio_num_t valve_pins[7] = {VALVE1_PIN, VALVE2_PIN, VALVE3_PIN, VALVE4_PIN, VALVE5_PIN, VALVE6_PIN, VALVE7_PIN};
-    ledc_channel_t valve_channels[7] = {VALVE1_CHANNEL, VALVE2_CHANNEL, VALVE3_CHANNEL, VALVE4_CHANNEL, VALVE5_CHANNEL, VALVE6_CHANNEL, VALVE7_CHANNEL};
+    gpio_num_t valve_pins_ledc[7] = {VALVE1_PIN, VALVE2_PIN, VALVE3_PIN, VALVE4_PIN, VALVE5_PIN, VALVE6_PIN, VALVE7_PIN};
+    ledc_channel_t valve_channels_ledc[7] = {VALVE1_CHANNEL, VALVE2_CHANNEL, VALVE3_CHANNEL, VALVE4_CHANNEL, VALVE5_CHANNEL, VALVE6_CHANNEL, VALVE7_CHANNEL};
     //Copy the ledc_channel_0 configuration to other ledc_channel configurations, update pin and channel, apply configurations and default angles
     ledc_channel_config_t ledc_rest_channels[7];
     for (int i = 0; i < 7; i++){
         memcpy(&ledc_rest_channels[i], &ledc_channel_0, sizeof(ledc_channel_config_t));
-        ledc_rest_channels[i].gpio_num = valve_pins[i];
-        ledc_rest_channels[i].channel = valve_channels[i];
+        ledc_rest_channels[i].gpio_num = valve_pins_ledc[i];
+        ledc_rest_channels[i].channel = valve_channels_ledc[i];
         ESP_ERROR_CHECK(ledc_channel_config(&ledc_rest_channels[i]));
-        write_angle(ledc_rest_channels[i].channel, 0);
+        write_ledc_angle(ledc_rest_channels[i].channel, 0);
+    }
+
+    //Create an array for mcwpm pins
+    gpio_num_t valve_pins_mcpwm0[6] = {VALVE8_PIN, VALVE9_PIN, VALVE10_PIN, VALVE11_PIN, VALVE12_PIN, VALVE13_PIN};
+    //Initializa the mcpwm modules
+    for (int i = 0; i < 6; i++){
+        mcpwm_gpio_init(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, valve_pins_mcpwm0[i]);
+    }
+    //Create a configuration for the mcpwm timers
+    mcpwm_config_t pwm_config = {
+        .frequency = PWM_FREQ,
+        .cmpr_a = 0,
+        .cmpr_b = 0,
+        .duty_mode = MCPWM_DUTY_MODE_0,
+        .counter_mode = MCPWM_UP_COUNTER,
+    };
+    //Initialize the mcpwm timers, each timer will control two operators
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config);
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
+    //Set the initial angle to 0 for all the mcpwm operators
+    for (int i = 0; i < 6; i++){
+        write_mcpwm_angle(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, 0);
     }
 
     //Create a task handle array for PID tasks
