@@ -81,7 +81,7 @@ void uart_event_task(void* pvParameters){
                                                 int32_t weight = get_next_number_from_string(parameters);
                                                 int32_t weight_setpoint = get_next_number_from_string(parameters);
 
-                                                if (valve_id >= 0 && valve_id <= 7 && weight >= 0 && weight <= 65535 &&
+                                                if (valve_id >= 0 && valve_id <= 19 && weight >= 0 && weight <= 65535 &&
                                                     weight_setpoint >= 0 && weight_setpoint <= 65535) {
                                                     printf("OK\n");
                                                     uint32_t value_to_send = ((uint16_t)weight << 16) | (uint16_t)weight_setpoint;

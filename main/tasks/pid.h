@@ -11,6 +11,7 @@
     #include <cstring>
     #include <bits/stdc++.h>
     #include "../constants.h"
+    #include "../data_types.h"
 
     void PID_task_0(void *pvParameters);
     void PID_task_1(void *pvParameters);
@@ -20,12 +21,25 @@
     void PID_task_5(void *pvParameters);
     void PID_task_6(void *pvParameters);
     void PID_task_7(void *pvParameters);
+    void PID_task_8(void *pvParameters);
+    void PID_task_9(void *pvParameters);
+    void PID_task_10(void *pvParameters);
+    void PID_task_11(void *pvParameters);
+    void PID_task_12(void *pvParameters);
+    void PID_task_13(void *pvParameters);
+    void PID_task_14(void *pvParameters);
+    void PID_task_15(void *pvParameters);
+    void PID_task_16(void *pvParameters);
+    void PID_task_17(void *pvParameters);
+    void PID_task_18(void *pvParameters);
+    void PID_task_19(void *pvParameters);
 
+    //PID task functions
     void compute_pid(uint8_t task_number, uint16_t weight, uint16_t weight_setpoint);
     double angle_to_microseconds(double angle);
     void write_ledc_angle(ledc_channel_t ledc_channel, double angle);
     void write_mcpwm_angle(mcpwm_unit_t mcpwm_unit, mcpwm_io_signals_t mcpwm_io_signal, double angle);
-    void wait_notification_and_compute(void* pvParameters, uint8_t task_id);
+    void wait_notification_and_compute(pid_task_data_t* pvParameters, uint8_t task_id);
     double constrain(double value, double min, double max);
     double map(double value, double in_min, double in_max, double out_min, double out_max);
 #endif

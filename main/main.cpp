@@ -58,8 +58,10 @@ extern "C" void app_main(void) {
         .clk_cfg = LEDC_AUTO_CLK,
     };
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+    //Create an array for ledc channels
+    ledc_channel_config_t ledc_channels[8];
     //ledc channel0 configuration and defaults angle to 0
-    ledc_channel_config_t ledc_channel_0 = {
+    ledc_channels[0] = {
         .gpio_num = VALVE0_PIN,
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = VALVE0_CHANNEL,
@@ -69,27 +71,28 @@ extern "C" void app_main(void) {
         .hpoint = 0,
         .sleep_mode = LEDC_SLEEP_MODE_NO_ALIVE_NO_PD,
     };
-    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel_0));
-    write_ledc_angle(ledc_channel_0.channel, 0);
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channels[0]));
+    write_ledc_angle(ledc_channels[0].channel, 0);
 
     //Create an array for pins and channels
     gpio_num_t valve_pins_ledc[7] = {VALVE1_PIN, VALVE2_PIN, VALVE3_PIN, VALVE4_PIN, VALVE5_PIN, VALVE6_PIN, VALVE7_PIN};
     ledc_channel_t valve_channels_ledc[7] = {VALVE1_CHANNEL, VALVE2_CHANNEL, VALVE3_CHANNEL, VALVE4_CHANNEL, VALVE5_CHANNEL, VALVE6_CHANNEL, VALVE7_CHANNEL};
-    //Copy the ledc_channel_0 configuration to other ledc_channel configurations, update pin and channel, apply configurations and default angles
-    ledc_channel_config_t ledc_rest_channels[7];
-    for (int i = 0; i < 7; i++){
-        memcpy(&ledc_rest_channels[i], &ledc_channel_0, sizeof(ledc_channel_config_t));
-        ledc_rest_channels[i].gpio_num = valve_pins_ledc[i];
-        ledc_rest_channels[i].channel = valve_channels_ledc[i];
-        ESP_ERROR_CHECK(ledc_channel_config(&ledc_rest_channels[i]));
-        write_ledc_angle(ledc_rest_channels[i].channel, 0);
+    //Copy the ledc_channel0 configuration to other ledc_channels configuration, update pin and channel, apply configurations and default angles
+    for (int i = 1; i < 8; i++){
+        memcpy(&ledc_channels[i], &ledc_channels[0], sizeof(ledc_channel_config_t));
+        ledc_channels[i].gpio_num = valve_pins_ledc[i-1];
+        ledc_channels[i].channel = valve_channels_ledc[i-1];
+        ESP_ERROR_CHECK(ledc_channel_config(&ledc_channels[i]));
+        write_ledc_angle(ledc_channels[i].channel, 0);
     }
 
     //Create an array for mcwpm pins
     gpio_num_t valve_pins_mcpwm0[6] = {VALVE8_PIN, VALVE9_PIN, VALVE10_PIN, VALVE11_PIN, VALVE12_PIN, VALVE13_PIN};
+    gpio_num_t valve_pins_mcpwm1[6] = {VALVE14_PIN, VALVE15_PIN, VALVE16_PIN, VALVE17_PIN, VALVE18_PIN, VALVE19_PIN};
     //Initializa the mcpwm modules
     for (int i = 0; i < 6; i++){
         mcpwm_gpio_init(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, valve_pins_mcpwm0[i]);
+        mcpwm_gpio_init(MCPWM_UNIT_1, (mcpwm_io_signals_t)i, valve_pins_mcpwm1[i]);
     }
     //Create a configuration for the mcpwm timers
     mcpwm_config_t pwm_config = {
@@ -103,22 +106,49 @@ extern "C" void app_main(void) {
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config);
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_1, &pwm_config);
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_2, &pwm_config);
     //Set the initial angle to 0 for all the mcpwm operators
     for (int i = 0; i < 6; i++){
         write_mcpwm_angle(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, 0);
+        write_mcpwm_angle(MCPWM_UNIT_1, (mcpwm_io_signals_t)i, 0);
     }
 
+    //Create an array of PID task functions to create the tasks in a loop
+    TaskFunction_t PID_tasks[20] = {PID_task_0, PID_task_1, PID_task_2, PID_task_3, PID_task_4, 
+        PID_task_5, PID_task_6, PID_task_7, PID_task_8, PID_task_9, 
+        PID_task_10, PID_task_11, PID_task_12, PID_task_13, PID_task_14, 
+        PID_task_15, PID_task_16, PID_task_17, PID_task_18, PID_task_19};
+    //Create an array of names for the PID tasks to create the tasks in a loop
+    const char* PID_tasks_names[20] = {"PID_task_0", "PID_task_1", "PID_task_2", "PID_task_3", "PID_task_4", 
+            "PID_task_5", "PID_task_6", "PID_task_7", "PID_task_8", "PID_task_9", 
+            "PID_task_10", "PID_task_11", "PID_task_12", "PID_task_13", "PID_task_14", 
+            "PID_task_15", "PID_task_16", "PID_task_17", "PID_task_18", "PID_task_19"};
+    //Create an array of pid_task_data_t for the PID tasks
+    pid_task_data_t pid_task_data[20];
+    //Fill ledc data
+    for (int i = 0; i < 8; i++){
+        pid_task_data[i].ledc_channel = ledc_channels[i].channel;
+        pid_task_data[i].is_ledc = true;
+    }
+    //Fill mcpwm data
+    for (int i = 8; i < 14; i++){
+        pid_task_data[i].mcpwm_unit = MCPWM_UNIT_0;
+        pid_task_data[i].mcpwm_io_signal = (mcpwm_io_signals_t)(i-8);
+        pid_task_data[i].is_ledc = false;
+    }
+    for (int i = 14; i < 20; i++){
+        pid_task_data[i].mcpwm_unit = MCPWM_UNIT_1;
+        pid_task_data[i].mcpwm_io_signal = (mcpwm_io_signals_t)(i-14);
+        pid_task_data[i].is_ledc = false;
+    }
     //Create a task handle array for PID tasks
-    TaskHandle_t* pid_tasks = (TaskHandle_t*)malloc(sizeof(TaskHandle_t)*8); 
+    TaskHandle_t* pid_tasks = (TaskHandle_t*)malloc(sizeof(TaskHandle_t)*20); 
     //Create individual tasks for PID control for multicore processing
-    xTaskCreatePinnedToCore(PID_task_0, "PID_task_0", 4096, &ledc_channel_0.channel, 1, &pid_tasks[0], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_1, "PID_task_1", 4096, &ledc_rest_channels[0].channel, 1, &pid_tasks[1], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_2, "PID_task_2", 4096, &ledc_rest_channels[1].channel, 1, &pid_tasks[2], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_3, "PID_task_3", 4096, &ledc_rest_channels[2].channel, 1, &pid_tasks[3], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_4, "PID_task_4", 4096, &ledc_rest_channels[3].channel, 1, &pid_tasks[4], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_5, "PID_task_5", 4096, &ledc_rest_channels[4].channel, 1, &pid_tasks[5], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_6, "PID_task_6", 4096, &ledc_rest_channels[5].channel, 1, &pid_tasks[6], tskNO_AFFINITY);
-    xTaskCreatePinnedToCore(PID_task_7, "PID_task_7", 4096, &ledc_rest_channels[6].channel, 1, &pid_tasks[7], tskNO_AFFINITY);
+    for (int i = 0; i < 20; i++){
+        xTaskCreatePinnedToCore(PID_tasks[i], PID_tasks_names[i], 4096, &pid_task_data[i], 1, &pid_tasks[i], tskNO_AFFINITY);
+    }
 
     //Create an uart task data structure
     uart_task_data_t uart_task_data = {

@@ -4,6 +4,9 @@
     #include <stdint.h>
     #include <freertos/FreeRTOS.h>
     #include <freertos/queue.h>
+    #include <driver/mcpwm.h>
+    #include <driver/ledc.h>
+    #include <nvs.h>
 
     typedef struct {
         int32_t address;
@@ -16,4 +19,11 @@
         QueueHandle_t uart_queue;
         TaskHandle_t* pid_tasks;
     } uart_task_data_t;
+
+    typedef struct {
+        mcpwm_unit_t mcpwm_unit;
+        mcpwm_io_signals_t mcpwm_io_signal;
+        ledc_channel_t ledc_channel;
+        bool is_ledc;
+    } pid_task_data_t;
 #endif
