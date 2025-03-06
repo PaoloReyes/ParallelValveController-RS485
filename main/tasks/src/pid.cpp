@@ -350,8 +350,8 @@ void write_ledc_angle(ledc_channel_t ledc_channel, double angle){
     double seconds = angle_to_microseconds(angle)/1000000;
     double time_step = 1/(PWM_FREQ*pow(2, DUTY_RESOLUTION));
     double duty = seconds/time_step;
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, ledc_channel, duty);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, ledc_channel);
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, ledc_channel, duty));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, ledc_channel));
 }
 
 /// @brief Write the angle to the servo motor using mcpwm
@@ -359,5 +359,5 @@ void write_ledc_angle(ledc_channel_t ledc_channel, double angle){
 /// @param mcpwm_io_signal mcpwm io signal to write the angle
 /// @param angle Angle to write to the servo motor
 void write_mcpwm_angle(mcpwm_unit_t mcpwm_unit, mcpwm_io_signals_t mcpwm_io_signal, double angle){
-    mcpwm_set_duty_in_us(mcpwm_unit, mcpwm_io2timer[mcpwm_io_signal], mcpwm_io2generator[mcpwm_io_signal], map(constrain(angle, 0, 90), 0, 90, 1000, 2000));
+    ESP_ERROR_CHECK(mcpwm_set_duty_in_us(mcpwm_unit, mcpwm_io2timer[mcpwm_io_signal], mcpwm_io2generator[mcpwm_io_signal], map(constrain(angle, 0, 90), 0, 90, 1000, 2000)));
 }

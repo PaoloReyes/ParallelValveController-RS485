@@ -91,8 +91,8 @@ extern "C" void app_main(void) {
     gpio_num_t valve_pins_mcpwm1[6] = {VALVE14_PIN, VALVE15_PIN, VALVE16_PIN, VALVE17_PIN, VALVE18_PIN, VALVE19_PIN};
     //Initializa the mcpwm modules
     for (int i = 0; i < 6; i++){
-        mcpwm_gpio_init(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, valve_pins_mcpwm0[i]);
-        mcpwm_gpio_init(MCPWM_UNIT_1, (mcpwm_io_signals_t)i, valve_pins_mcpwm1[i]);
+        ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, valve_pins_mcpwm0[i]));
+        ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_1, (mcpwm_io_signals_t)i, valve_pins_mcpwm1[i]));
     }
     //Create a configuration for the mcpwm timers
     mcpwm_config_t pwm_config = {
@@ -103,12 +103,12 @@ extern "C" void app_main(void) {
         .counter_mode = MCPWM_UP_COUNTER,
     };
     //Initialize the mcpwm timers, each timer will control two operators
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config);
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
-    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);
-    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_1, &pwm_config);
-    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_2, &pwm_config);
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config));
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config));
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config));
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config));
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_1, &pwm_config));
+    ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_2, &pwm_config));
     //Set the initial angle to 0 for all the mcpwm operators
     for (int i = 0; i < 6; i++){
         write_mcpwm_angle(MCPWM_UNIT_0, (mcpwm_io_signals_t)i, 0);
