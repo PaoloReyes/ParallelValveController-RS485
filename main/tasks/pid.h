@@ -34,12 +34,22 @@
     void PID_task_18(void *pvParameters);
     void PID_task_19(void *pvParameters);
 
-    //PID task functions
-    void compute_pid(uint8_t task_number, uint16_t weight, uint16_t weight_setpoint);
+    //PID controller class
+    class PID_controller{
+        public:
+            PID_controller(double kp, double ki, double kd);
+            double compute(double setpoint, double input);
+        private:
+            double kp, ki, kd;
+            double last_error, error_sum;
+            double last_output;
+            uint32_t last_time;
+    };
+    //PID tasks functions
     double angle_to_microseconds(double angle);
     void write_ledc_angle(ledc_channel_t ledc_channel, double angle);
     void write_mcpwm_angle(mcpwm_unit_t mcpwm_unit, mcpwm_io_signals_t mcpwm_io_signal, double angle);
-    void wait_notification_and_compute(pid_task_data_t* pvParameters, uint8_t task_id);
+    void wait_notification_and_compute(pid_task_data_t* pvParameters, PID_controller* pid_controller, uint8_t task_id);
     double constrain(double value, double min, double max);
     double map(double value, double in_min, double in_max, double out_min, double out_max);
 #endif
