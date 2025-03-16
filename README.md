@@ -4,6 +4,8 @@
 This repository contains the hardware and software needed to build a 20 container controller under freertos SMP multicore architecture on UART ISR event driven processes for ESP32-S3.
 The controller is responsible for listening to RS485 messages and actuate the connected containers accordingly.
 
+![Controller](assets/ParallelValveController-RS485Architecture.png)
+
 ## Features
 - **Parallel Control**: Uses two XTensa LX7 Cores under freertos on container independent tasks.
 - **Reduces PLC overhead**: PID control is performed under the ESP32-S3 and not the main PLC logic.
