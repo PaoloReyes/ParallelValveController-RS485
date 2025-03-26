@@ -27,7 +27,6 @@
     void uart_event_task(void *pvParameters);
     char* get_string_parameter_from_command(uint8_t* rx_data);
     char* get_command_from_data(uint8_t* rx_data);
-    void send_response_and_get_next_state(bool success, move_on_t move_on, fsm_state_t new_fsm_state, fsm_state_t& current_fsm_state);
     bool are_all_digits(char* string);
     int32_t get_next_number_from_string(char* &rx_data);
 #endif

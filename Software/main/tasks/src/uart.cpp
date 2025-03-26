@@ -44,12 +44,10 @@ void uart_event_task(void* pvParameters){
                                             //If command is OP, get the next buffered characters as the address and convert it to an integer
                                             int32_t address_numeric = get_next_number_from_string(parameters);
                                             //Check whether the address is the same as the current device address, send response and get the next state
-                                            send_response_and_get_next_state(address_numeric == uart_task_data.device_data.address,
-                                                                            MOVE_ON_SUCCESS, 
-                                                                            WAITING_FOR_COMMAND,
-                                                                            fsm_state);
-                                        } else {
-                                            printf("ERR\n");
+                                            if (address_numeric == uart_task_data.device_data.address) {
+                                                fsm_state = WAITING_FOR_COMMAND;
+                                                printf("OK\n");
+                                            }
                                         }
                                         break;
                                     }
@@ -57,15 +55,12 @@ void uart_event_task(void* pvParameters){
                                     {
                                         if (strcmp(command, "WP") == 0) {
                                             //Update the address in the NVS
-                                            esp_err_t err = ESP_OK;
-                                            err = nvs_open(DEVICE_DATA_NAMESPACE, NVS_READWRITE, &uart_task_data.device_data.nvs_handle);
-                                            err = nvs_set_i32(uart_task_data.device_data.nvs_handle, DEVICE_ADDRESS, uart_task_data.device_data.new_address);
-                                            err = nvs_commit(uart_task_data.device_data.nvs_handle);
+                                            nvs_open(DEVICE_DATA_NAMESPACE, NVS_READWRITE, &uart_task_data.device_data.nvs_handle);
+                                            nvs_set_i32(uart_task_data.device_data.nvs_handle, DEVICE_ADDRESS, uart_task_data.device_data.new_address);
+                                            nvs_commit(uart_task_data.device_data.nvs_handle);
                                             nvs_close(uart_task_data.device_data.nvs_handle);
-                                            send_response_and_get_next_state(err == ESP_OK,
-                                                                            MOVE_ALWAYS, 
-                                                                            WAITING_FOR_COMMAND,
-                                                                            fsm_state);
+                                            fsm_state = WAITING_FOR_COMMAND;
+                                            printf("OK\n");
                                         } else {
                                             printf("ERR\n");
                                         }
@@ -97,11 +92,12 @@ void uart_event_task(void* pvParameters){
                                             } else {
                                                 //If the address is not empty, get the next buffered characters as the address and convert it to an integer
                                                 uart_task_data.device_data.new_address = parameter_number;
-                                                send_response_and_get_next_state(uart_task_data.device_data.new_address >= 0 && 
-                                                                                uart_task_data.device_data.new_address <= 255,
-                                                                                MOVE_ON_SUCCESS, 
-                                                                                PENDING_CONFIGURATION,
-                                                                                fsm_state);
+                                                if (uart_task_data.device_data.new_address >= 0 && uart_task_data.device_data.new_address <= 255) {
+                                                    fsm_state = PENDING_CONFIGURATION;
+                                                    printf("OK\n");
+                                                } else {
+                                                    printf("ERR\n");
+                                                }	
                                             }
                                         } else {
                                             printf("ERR\n");
@@ -170,28 +166,6 @@ char* get_command_from_data(uint8_t* rx_data) {
     char* command = (char*)malloc(3);
     sprintf(command, "%c%c", rx_data[0], rx_data[1]);
     return command;
-}
-
-/// @brief Send an OK or ERR response and get the next state of the state machine
-/// @param success Condition to evaluate the response
-/// @param move_on When to move on to the next state
-/// @param new_fsm_state State to move on to
-/// @param current_fsm_state Current state of the state machine by reference
-void send_response_and_get_next_state(bool success, move_on_t move_on, fsm_state_t new_fsm_state, fsm_state_t& current_fsm_state) {
-    if (success) {
-        printf("OK\n");
-        if (move_on == MOVE_ON_SUCCESS) {
-            current_fsm_state = new_fsm_state;
-        }
-    } else {
-        printf("ERR\n");
-        if (move_on == MOVE_ON_FAILURE) {
-            current_fsm_state = new_fsm_state;
-        }
-    }
-    if (move_on == MOVE_ALWAYS) {
-        current_fsm_state = new_fsm_state;
-    }
 }
 
 /// @brief Checks whether a string is all digits and spaces
